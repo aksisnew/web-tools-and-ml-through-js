@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>Password Generator</title>
+  <style>
+    :root {
+      --bg: #4a1010;
+      --card: #9d3030;
+      --accent: #341915;
+      --muted: #bd4545;
+      --good: #393ca4;
+      --warn: #843805;
+      --bad: #ff0404;
+      --glass: rgba(129, 45, 34, 0.04);
+    }
+    * {
+      box-sizing: border-box;
+    }
+    html, body {
+      height: 100%;
+      margin: 0;
+      color: #e6eef8;
+      background: linear-gradient(180deg, #2a1414 0%, #2b0404 100%);
+      -webkit-font-smoothing: antialiased;
+    }
+    .wrap {
+      max-width: 920px;
+      margin: 20px auto;
+      padding: 16px;
+    }
+    .card {
+      background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+      border-radius: 14px;
+      padding: 16px;
+      box-shadow: 0 6px 20px rgba(2, 6, 23, 0.6);
+    }
+    header {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+    h1 {
+      font-size: 18px;
+      margin: 0;
+    }
+    p.lead {
+      margin: 6px 0 12px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .controls {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .bubble-cursor {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: rgba(255, 180, 180, 0.15);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      box-shadow: 0 0 8px rgba(255, 80, 80, 0.3);
+      pointer-events: none;
+      mix-blend-mode: lighten;
+      backdrop-filter: blur(3px);
+      z-index: 9999;
+      transition: transform 0.2s ease;
+      transform: translate(-50%, -50%);
+    }
+    .cursor-glow {
+      position: fixed;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 0;
+      mix-blend-mode: screen;
+      background:
+        radial-gradient(600px 600px at var(--mx,50%) var(--my,50%),
+          rgba(255,120,100,0.18) 0%,
+          rgba(220,70,60,0.12) 18%,
+          rgba(180,40,32,0.08) 40%,
+          transparent 70%),
+        radial-gradient(250px 250px at var(--mx,50%) var(--my,50%),
+          rgba(255,200,190,0.06) 0%,
+          transparent 60%);
+      transition: opacity 400ms linear;
+      opacity: 1;
+      will-change: background-position;
+    }
+
+    .btn {
+      background: var(--glass);
+      border: 1px solid rgba(255,255,255,0.03);
+      padding: 10px 12px;
+      border-radius: 10px;
+      color: #cfe8ff;
+      font-weight: 600;
+      font-size: 14px;
+      min-width: 64px;
+      text-align: center;
+      cursor: pointer;
+    }
+    .btn.active {
+      background: linear-gradient(90deg, var(--accent), #5b21b6);
+      box-shadow: 0 6px 18px rgba(124, 58, 237, 0.18);
+      border: none;
+    }
+    .output {
+      margin-top: 14px;
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .password {
+      flex: 1;
+      padding: 12px;
+      border-radius: 12px;
+      background: transparent;
+      border: 1px dashed rgba(255,255,255,0.04);
+      font-family: monospace;
+      font-size: 14px;
+      color: #e8f1ff;
+      word-break: break-all;
+    }
+    .small {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      margin-top: 12px;
+    }
+    .copy {
+      padding: 10px 12px;
+      border-radius: 10px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.02);
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .generate {
+      flex: 1;
+      padding: 12px;
+      border-radius: 12px;
+      background: linear-gradient(90deg, #2d3ba9, #222c7a);
+      color: white;
+      font-weight: 800;
+      border: none;
+      cursor: pointer;
+    }
+
+    .meter {
+      margin-top: 12px;
+    }
+    .meter-bar {
+      height: 12px;
+      background: rgba(255,255,255,0.04);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+    .meter-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, var(--bad), var(--warn), var(--good));
+      transition: width 0.35s ease;
+    }
+    .meter-text {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .times {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin-top: 12px;
+    }
+    .time-card {
+      padding: 8px;
+      border-radius: 10px;
+      background: rgba(255,255,255,0.02);
+      text-align: center;
+    }
+    .time-card .t {
+      font-weight: 800;
+      font-size: 13px;
+    }
+    .footer {
+      margin-top: 14px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    /* Modal styles */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(2,6,23,0.6);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 12px;
+      z-index: 10000; /* make sure modal is above glow */
+    }
+    .modal {
+      width: 100%;
+      max-width: 520px;
+      background: #071428;
+      padding: 16px;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.04);
+    }
+    .modal h3 {
+      margin: 0 0 8px;
+    }
+    .field {
+      display: flex;
+      flex-direction: column;
+      margin-bottom: 8px;
+    }
+    .field label {
+      font-size: 13px;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+    .field input {
+      padding: 10px;
+      border-radius: 8px;
+      border: 1px solid rgba(255,255,255,0.04);
+      background: transparent;
+      color: #e8f1ff;
+    }
+    .modal .actions {
+      display: flex;
+      gap: 8px;
+      justify-content: flex-end;
+      margin-top: 8px;
+    }
+    .btn-ghost {
+      background: transparent;
+      border: 1px solid rgba(255,255,255,0.06);
+      padding: 8px 10px;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    .btn-primary {
+      background: linear-gradient(90deg, #3744d4, #262f8d);
+      padding: 8px 12px;
+      border-radius: 8px;
+      border: none;
+      color: white;
+      cursor: pointer;
+    }
+
+    @media (max-width: 480px) {
+      .wrap {
+        padding: 12px;
+        margin: 8px;
+      }
+      .btn {
+        flex: 1;
+        padding: 10px;
+      }
+      .controls {
+        gap: 6px;
+      }
+      .times {
+        grid-template-columns: repeat(1, 1fr);
+      }
+      .generate {
+        padding: 12px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <header>
+        <div style="flex: 1;">
+          <h1>Mobile Password Generator</h1>
+          <p class="lead"><strong>Generate</strong>. Save as a .txt file with metadata.</p>
+        </div>
+      </header>
+
+      <div style="margin-top: 10px;">
+        <div class="controls" role="tablist" aria-label="Choose length">
+          <button class="btn" data-len="24">24</button>
+          <button class="btn" data-len="70">70</button>
+          <button class="btn" data-len="100">100</button>
+          <button class="btn" data-len="150">150</button>
+        </div>
+
+        <div class="output">
+          <div id="pwd" class="password" aria-live="polite">—</div>
+          <button id="copy" class="copy" title="Copy password">Copy</button>
+        </div>
+
+        <div class="row">
+          <button id="generate" class="generate">Generate Password</button>
+        </div>
+
+        <div class="meter" aria-hidden="false">
+          <div class="meter-bar"><div id="meterFill" class="meter-fill"></div></div>
+          <div id="meterText" class="meter-text">Entropy: — bits</div>
+        </div>
+
+        <div class="times" aria-live="polite">
+          <div class="time-card">
+            <div class="small">Online (100 req/s)</div>
+            <div id="t1" class="t">—</div>
+          </div>
+          <div class="time-card">
+            <div class="small">GPU (1e9 req/s)</div>
+            <div id="t2" class="t">—</div>
+          </div>
+          <div class="time-card">
+            <div class="small">Massive/State (1e12 req/s)</div>
+            <div id="t3" class="t">—</div>
+          </div>
+        </div>
+
+        <div class="row" style="margin-top: 12px;">
+          <button id="saveBtn" class="btn">Save to .txt</button>
+        </div>
+
+        <div class="footer">
+          Uses uppercase, lowercase, numbers, and symbols. Spaces are excluded. No toggles — all character classes are always used for maximum strength.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal -->
+  <div id="modalBackdrop" class="modal-backdrop" role="dialog" aria-modal="true">
+    <div class="modal" role="document">
+      <h3>Save password</h3>
+      <div class="field">
+        <label for="service">Service / Site name</label>
+        <input id="service" type="text" placeholder="e.g. Twitter" />
+      </div>
+      <div class="field">
+        <label for="username">Username</label>
+        <input id="username" type="text" placeholder="yourusername" />
+      </div>
+      <div class="field">
+        <label for="email">Primary email linked</label>
+        <input id="email" type="email" placeholder="you@domain.com" />
+      </div>
+      <div class="field">
+        <label for="recovery">Recovery email (optional)</label>
+        <input id="recovery" type="email" placeholder="recovery@domain.com" />
+      </div>
+      <div class="field">
+        <label for="filename">File name (without extension)</label>
+        <input id="filename" type="text" placeholder="twitter-login-YYYY-MM-DD" />
+      </div>
+      <div class="actions">
+        <button id="cancelSave" class="btn-ghost">Cancel</button>
+        <button id="confirmSave" class="btn-primary">Download .txt</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="cursor-glow"></div>
+  <div class="bubble-cursor" id="bubbleCursor"></div>
+
+  <script>
+    // Character sets
+    const UPPER = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    const LOWER = "abcdefghijklmnopqrstuvwxyz";
+    const DIGITS = "0123456789";
+    const SYMBOLS = "!\"#$%&'()*+,-./:;<=>?@[\\]^_{|}~"; 
+    const ALL = UPPER + LOWER + DIGITS + SYMBOLS;
+    const POOL_SIZE = ALL.length;
+
+    // DOM elements
+    const buttons = document.querySelectorAll(".btn[data-len]");
+    const pwdEl = document.getElementById("pwd");
+    const genBtn = document.getElementById("generate");
+    const copyBtn = document.getElementById("copy");
+    const meterFill = document.getElementById("meterFill");
+    const meterText = document.getElementById("meterText");
+    const t1 = document.getElementById("t1");
+    const t2 = document.getElementById("t2");
+    const t3 = document.getElementById("t3");
+    const saveBtn = document.getElementById("saveBtn");
+
+    const modalBackdrop = document.getElementById("modalBackdrop");
+    const cancelSave = document.getElementById("cancelSave");
+    const confirmSave = document.getElementById("confirmSave");
+    const serviceIn = document.getElementById("service");
+    const usernameIn = document.getElementById("username");
+    const emailIn = document.getElementById("email");
+    const recoveryIn = document.getElementById("recovery");
+    const filenameIn = document.getElementById("filename");
+
+    let selectedLen = 24;
+
+    // Initialize length selection buttons
+    buttons.forEach(b => {
+      b.addEventListener("click", () => {
+        buttons.forEach(x => x.classList.remove("active"));
+        b.classList.add("active");
+        const v = parseInt(b.dataset.len, 10);
+        selectedLen = isNaN(v) ? 24 : v;
+        generateAndShow();
+      });
+    });
+    // Activate first by default
+    if (buttons.length > 0) {
+      buttons[0].classList.add("active");
+    }
+
+    function secureRandomInt(max) {
+      try {
+        const arr = new Uint32Array(1);
+        window.crypto.getRandomValues(arr);
+        return arr[0] % max;
+      } catch (e) {
+        return Math.floor(Math.random() * max);
+      }
+    }
+
+    function generatePassword(len) {
+      const classes = [UPPER, LOWER, DIGITS, SYMBOLS];
+      let out = [];
+      // Ensure at least one of each class if length >= number of classes
+      if (len >= classes.length) {
+        classes.forEach(s => {
+          out.push(s.charAt(secureRandomInt(s.length)));
+        });
+      }
+      for (let i = out.length; i < len; i++) {
+        out.push(ALL.charAt(secureRandomInt(POOL_SIZE)));
+      }
+      // Shuffle with Fisher-Yates
+      for (let i = out.length - 1; i > 0; i--) {
+        const j = secureRandomInt(i + 1);
+        [out[i], out[j]] = [out[j], out[i]];
+      }
+      return out.join("");
+    }
+
+    function bitsOfEntropy(len) {
+      return len * (Math.log2 ? Math.log2(POOL_SIZE) : (Math.log(POOL_SIZE)/Math.log(2)));
+    }
+
+    function humanDuration(seconds) {
+      if (!isFinite(seconds) || seconds > 1e25) {
+        return "> 10^25 sec";
+      }
+      const units = [
+        { s: 365 * 24 * 3600, name: "year" },
+        { s: 24 * 3600, name: "day" },
+        { s: 3600, name: "hour" },
+        { s: 60, name: "minute" },
+        { s: 1, name: "second" }
+      ];
+      let out = [];
+      for (const u of units) {
+        if (seconds >= u.s) {
+          const v = Math.floor(seconds / u.s);
+          seconds -= v * u.s;
+          out.push(v + " " + u.name + (v > 1 ? "s" : ""));
+          if (out.length >= 2) break;
+        }
+      }
+      return out.join(" ") || "0 second";
+    }
+
+    function estimateTimes(len) {
+      const ent = bitsOfEntropy(len);
+      const avgGuesses = Math.pow(2, Math.max(0, ent - 1));
+      const speeds = [100, 1e9, 1e12];
+      return speeds.map(s => avgGuesses / s);
+    }
+
+    function updateMeter(len) {
+      const ent = bitsOfEntropy(len);
+      const percent = Math.min(100, (ent / 200) * 100);
+      meterFill.style.width = percent + "%";
+      meterText.textContent = "Entropy: " + ent.toFixed(1) + " bits";
+    }
+
+    function generateAndShow() {
+      const pw = generatePassword(selectedLen);
+      pwdEl.textContent = pw;
+      updateMeter(selectedLen);
+      const [a, b, c] = estimateTimes(selectedLen);
+      t1.textContent = humanDuration(a);
+      t2.textContent = humanDuration(b);
+      t3.textContent = humanDuration(c);
+    }
+
+    // Initial generation
+    generateAndShow();
+
+    genBtn.addEventListener("click", () => {
+      generateAndShow();
+    });
+
+    copyBtn.addEventListener("click", async () => {
+      const text = pwdEl.textContent || "";
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(text);
+        } else {
+          const ta = document.createElement("textarea");
+          ta.value = text;
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand("copy");
+          document.body.removeChild(ta);
+        }
+        copyBtn.textContent = "Copied";
+        setTimeout(() => { copyBtn.textContent = "Copy"; }, 1200);
+      } catch (e) {
+        console.error("copy failed", e);
+        alert("Copy failed — select & copy manually");
+      }
+    });
+
+    function openModal() {
+      filenameIn.value = filenameIn.value || defaultFileName();
+      modalBackdrop.style.display = "flex";
+      setTimeout(() => { serviceIn.focus(); }, 120);
+    }
+    function closeModal() {
+      modalBackdrop.style.display = "none";
+    }
+
+    saveBtn.addEventListener("click", () => {
+      openModal();
+    });
+    cancelSave.addEventListener("click", () => {
+      closeModal();
+    });
+    modalBackdrop.addEventListener("click", ev => {
+      if (ev.target === modalBackdrop) {
+        closeModal();
+      }
+    });
+
+    function defaultFileName() {
+      const svc = (serviceIn.value || "password").replace(/[^a-z0-9_-]/gi, "").toLowerCase();
+      const now = new Date();
+      const iso = now.toISOString().slice(0, 10);
+      return `${svc || "password"}-${iso}`;
+    }
+
+    function buildFileContent() {
+      const lines = [];
+      lines.push(`# Saved credentials`);
+      lines.push(`Service: ${serviceIn.value || "—"}`);
+      lines.push(`Username: ${usernameIn.value || "—"}`);
+      lines.push(`Email: ${emailIn.value || "—"}`);
+      if (recoveryIn.value) {
+        lines.push(`Recovery email: ${recoveryIn.value}`);
+      }
+      lines.push(`Generated on: ${new Date().toString()}`);
+      lines.push("");
+      lines.push("Password:");
+      lines.push(pwdEl.textContent || "—");
+      lines.push("");
+      lines.push("Notes:");
+      lines.push("");
+      return lines.join("\n");
+    }
+
+    function safeFileName(name) {
+      const s = (name || "").trim();
+      if (!s) return "password";
+      return s.replace(/[^a-z0-9._-]/gi, "_");
+    }
+
+    function downloadTxtFile(filename, content) {
+      try {
+        const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => {
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        }, 250);
+        return true;
+      } catch (e) {
+        console.error("downloadTxtFile", e);
+        return false;
+      }
+    }
+
+    confirmSave.addEventListener("click", () => {
+      const chosenName = safeFileName(filenameIn.value || defaultFileName()) + ".txt";
+      const content = buildFileContent();
+      if (!content) {
+        alert("Nothing to save. Generate a password first.");
+        return;
+      }
+      const ok = downloadTxtFile(chosenName, content);
+      if (ok) {
+        closeModal();
+      }
+    });
+
+    // Long-press on generate to also copy
+    let pressTimer = null;
+    genBtn.addEventListener("touchstart", () => {
+      pressTimer = setTimeout(() => {
+        try {
+          const txt = pwdEl.textContent || "";
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(txt);
+          } else {
+            const ta = document.createElement("textarea");
+            ta.value = txt;
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand("copy");
+            document.body.removeChild(ta);
+          }
+          copyBtn.textContent = "Copied";
+          setTimeout(() => { copyBtn.textContent = "Copy"; }, 1200);
+        } catch (e) {
+          console.error("long press copy failed", e);
+        }
+      }, 800);
+    });
+    ["touchend", "touchcancel", "touchmove", "mouseleave"].forEach(ev =>
+      genBtn.addEventListener(ev, () => {
+        if (pressTimer) {
+          clearTimeout(pressTimer);
+          pressTimer = null;
+        }
+      })
+    );
+
+    // Cursor glow animation
+    (function() {
+      const glow = document.querySelector('.cursor-glow');
+      if (!glow) return;
+      const target = { x: 50, y: 50 };
+      const current = { x: 50, y: 50 };
+      const SMOOTH = 0.16;
+
+      function onPointerMove(e) {
+        let clientX, clientY;
+        if (e.touches && e.touches.length) {
+          clientX = e.touches[0].clientX;
+          clientY = e.touches[0].clientY;
+        } else {
+          clientX = e.clientX;
+          clientY = e.clientY;
+        }
+        const pctX = (clientX / window.innerWidth) * 100;
+        const pctY = (clientY / window.innerHeight) * 100;
+        target.x = pctX;
+        target.y = pctY;
+        glow.style.opacity = '1';
+      }
+      function onPointerLeave() {
+        glow.style.opacity = '0';
+      }
+      function lerp(a, b, t) {
+        return a + (b - a) * t;
+      }
+      function animate() {
+        current.x = lerp(current.x, target.x, SMOOTH);
+        current.y = lerp(current.y, target.y, SMOOTH);
+        glow.style.setProperty('--mx', current.x + '%');
+        glow.style.setProperty('--my', current.y + '%');
+        requestAnimationFrame(animate);
+      }
+
+      window.addEventListener('pointermove', onPointerMove, { passive: true });
+      window.addEventListener('pointerleave', onPointerLeave, { passive: true });
+      window.addEventListener('blur', onPointerLeave, { passive: true });
+
+      requestAnimationFrame(animate);
+    })();
+
+    // Bubble cursor (simple)
+    (function() {
+      const bubble = document.getElementById('bubbleCursor');
+      if (!bubble) return;
+      window.addEventListener('pointermove', e => {
+        bubble.style.left = `${e.clientX}px`;
+        bubble.style.top = `${e.clientY}px`;
+      });
+    })();
+  </script>
+</body>
+</html>

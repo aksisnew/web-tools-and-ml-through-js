@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>Cool Username Generator</title>
+  <style>
+    body{margin:0;font-family:Inter,system-ui,Arial;background:#0f172a;color:#f1f5f9;display:flex;align-items:center;justify-content:center;min-height:100vh}
+    .card{background:#1e293b;padding:20px;border-radius:16px;box-shadow:0 6px 20px rgba(0,0,0,0.5);max-width:420px;width:100%}
+    h1{font-size:20px;margin:0 0 12px}
+    .options{display:flex;flex-direction:column;gap:10px;margin-bottom:14px}
+    label{font-size:14px;display:flex;align-items:center;gap:6px;color:#cbd5e1}
+    input[type=checkbox]{accent-color:#6366f1;width:16px;height:16px}
+    button{padding:12px;width:100%;border:none;border-radius:10px;font-weight:700;font-size:15px;background:linear-gradient(90deg,#6366f1,#3b82f6);color:white;cursor:pointer}
+    .output{margin-top:14px;display:grid;gap:6px}
+    .uname{padding:8px;border-radius:8px;background:#334155;font-family:monospace;text-align:center}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Cool Username Generator</h1>
+    <div class="options">
+      <label><input type="checkbox" id="noNumbers" checked> Avoid numbers</label>
+      <label><input type="checkbox" id="sarcasm"> Sarcasm Text (LiKe ThIs)</label>
+      <label><input type="checkbox" id="noUnderscore" checked> Avoid underscores</label>
+      <label><input type="checkbox" id="short"> Prefer short (≤8 chars)</label>
+    </div>
+    <button id="gen">Generate Usernames</button>
+    <div id="out" class="output"></div>
+  </div>
+
+<script>
+const words = [
+  "echo","lunar","vibe","zen","storm","pixel","aura","ghost","flux","nova","dream","blink","mist","void","skull","charm","hush","shade","astro","sugar","neon","jelly","venom","pluto","ember","cupid","sphinx","whisper","nyx","onyx","frost"
+];
+
+function randomWord(){return words[Math.floor(Math.random()*words.length)];}
+function sarcasmText(str){return str.split('').map((c,i)=> i%2?c.toUpperCase():c.toLowerCase()).join('');}
+
+function generateUsernames(opts){
+  let out = [];
+  for(let i=0;i<5;i++){
+    let w1 = randomWord();
+    let w2 = randomWord();
+    while(w2===w1) w2 = randomWord();
+    let uname = w1 + w2;
+    if(!opts.noNumbers && Math.random()>0.5) uname += Math.floor(Math.random()*99);
+    if(!opts.noUnderscore && Math.random()>0.5) uname = w1+"_"+w2;
+    if(opts.short && uname.length>8) uname = w1.slice(0,3)+w2.slice(0,3);
+    if(opts.sarcasm) uname = sarcasmText(uname);
+    out.push(uname);
+  }
+  return out;
+}
+
+document.getElementById('gen').addEventListener('click',()=>{
+  const opts = {
+    noNumbers: document.getElementById('noNumbers').checked,
+    sarcasm: document.getElementById('sarcasm').checked,
+    noUnderscore: document.getElementById('noUnderscore').checked,
+    short: document.getElementById('short').checked
+  };
+  const names = generateUsernames(opts);
+  const outDiv = document.getElementById('out');
+  outDiv.innerHTML = '';
+  names.forEach(n=>{
+    const div = document.createElement('div');
+    div.className = 'uname';
+    div.textContent = n;
+    outDiv.appendChild(div);
+  });
+});
+</script>
+</body>
+</html>
