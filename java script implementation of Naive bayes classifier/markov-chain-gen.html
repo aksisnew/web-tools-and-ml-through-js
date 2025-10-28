@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Markov Chain Text Generator</title>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    background: #1a1a1a;
+    color: #f0f0f0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+  }
+  h1 { margin-bottom: 10px; }
+  textarea { width: 100%; max-width: 600px; height: 120px; margin: 10px 0; padding: 10px; border-radius: 8px; border: none; }
+  input[type=number] { width: 80px; margin-left: 10px; }
+  button { padding: 10px 20px; border-radius: 8px; border: none; background: #ff5722; color: white; font-weight: bold; cursor: pointer; margin-top: 5px; }
+  .output { margin-top: 20px; max-width: 600px; background: #222; padding: 15px; border-radius: 8px; }
+</style>
+</head>
+<body>
+<h1>Markov Chain Text Generator</h1>
+<p>Train with sample text and generate new sentences based on a Markov chain.</p>
+
+<textarea id="trainInput" placeholder="Enter training text here..."></textarea>
+<div>
+  Order: <input type="number" id="orderInput" value="2" min="1" max="5">
+  <button id="trainBtn">Train Markov Chain</button>
+</div>
+
+<textarea id="seedInput" placeholder="Optional seed text..."></textarea>
+<div>
+  Length: <input type="number" id="lengthInput" value="50" min="1" max="500">
+  <button id="generateBtn">Generate Text</button>
+</div>
+
+<div class="output" id="output"></div>
+
+<script>
+class MarkovChain {
+  constructor(order = 2) {
+    this.order = order;
+    this.chain = {};
+    this.words = [];
+  }
+
+  tokenize(text) {
+    return text.split(/\s+/).filter(Boolean);
+  }
+
+  train(text) {
+    const words = this.tokenize(text);
+    this.words = words;
+    for (let i = 0; i <= words.length - this.order; i++) {
+      const key = words.slice(i, i + this.order).join(' ');
+      const nextWord = words[i + this.order];
+      if (!this.chain[key]) this.chain[key] = [];
+      if (nextWord) this.chain[key].push(nextWord);
+    }
+  }
+
+  generate(seed = '', maxWords = 50) {
+    const keys = Object.keys(this.chain);
+    let current = seed ? seed.split(/\s+/).slice(-this.order).join(' ') : keys[Math.floor(Math.random() * keys.length)];
+    const result = current.split(' ');
+
+    for (let i = 0; i < maxWords; i++) {
+      const nextWords = this.chain[current];
+      if (!nextWords || nextWords.length === 0) break;
+      const next = nextWords[Math.floor(Math.random() * nextWords.length)];
+      result.push(next);
+      current = result.slice(result.length - this.order, result.length).join(' ');
+    }
+
+    return result.join(' ');
+  }
+}
+
+// ==========================
+// UI wiring
+// ==========================
+let mc = new MarkovChain();
+const trainBtn = document.getElementById('trainBtn');
+const generateBtn = document.getElementById('generateBtn');
+const output = document.getElementById('output');
+
+trainBtn.addEventListener('click', () => {
+  const text = document.getElementById('trainInput').value;
+  const order = parseInt(document.getElementById('orderInput').value, 10);
+  if (!text.trim()) return;
+  mc = new MarkovChain(order);
+  mc.train(text);
+  output.innerHTML = `<div>Markov chain trained on ${text.split(/\s+/).length} words with order ${order}.</div>`;
+});
+
+generateBtn.addEventListener('click', () => {
+  const seed = document.getElementById('seedInput').value;
+  const length = parseInt(document.getElementById('lengthInput').value, 10);
+  const text = mc.generate(seed, length);
+  output.innerHTML = `<div>${text}</div>`;
+});
+</script>
+</body>
+</html>
