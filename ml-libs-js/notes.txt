@@ -1,1 +1,6 @@
 making libraries for ml based tasks in browser
+
+## Target
+
+-> Part of speech tagging 
+-> Proper tokenizing
