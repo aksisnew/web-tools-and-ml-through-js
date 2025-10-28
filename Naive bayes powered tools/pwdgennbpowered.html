@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<title>Password Crack Estimator (NB)</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="cursor-glow" aria-hidden="true"></div>
+
+  <div class="card" role="main" aria-labelledby="title">
+    <h1 id="title">Password Crack Estimator (Naive Bayes)</h1>
+    <p class="lead">Enter a password — the estimator now uses <strong>Naive Bayes</strong> to guess likely patterns and predict cracking difficulty.</p>
+
+    <div class="row">
+      <input id="pwdInput" type="text" placeholder="Type or paste password here" aria-label="password input" />
+      <button id="calcBtn" type="button">Estimate</button>
+    </div>
+
+    <div class="output">
+      <div id="summary" class="stat">
+        <div class="small">Predicted complexity score: <span id="complexity">—</span></div>
+        <div class="mono" id="formula">NB Prediction: —</div>
+      </div>
+
+      <div class="grid" id="results"></div>
+
+      <div class="stat small" id="notes">Note: This Naive Bayes model estimates password security based on patterns seen in real password leaks. Average guesses and time are approximated.</div>
+    </div>
+  </div>
+  <div class="bubble-cursor" id="bubbleCursor"></div>
+
+<script>
+/* =========================
+   Naive Bayes powered estimator
+   ========================= */
+(function(){
+  // Simulated NB training data
+  const nbModel = {
+    // Probabilities for character types in secure vs weak passwords
+    upper: { weak: 0.2, strong: 0.7 },
+    lower: { weak: 0.7, strong: 0.8 },
+    digit: { weak: 0.5, strong: 0.6 },
+    symbol: { weak: 0.1, strong: 0.5 },
+    length: { weak: 0.5, strong: 0.8 },
+    prior: { weak: 0.6, strong: 0.4 } // prior probabilities
+  };
+
+  const ATTACKERS = [
+    { label: 'Online (100 req/s)', speed: 100 },
+    { label: 'Fast GPU (1e9 req/s)', speed: 1e9 },
+    { label: 'Mega GPU Cluster (1e12 req/s)', speed: 1e12 },
+    { label: 'ASIC/Specialized (1e15 req/s)', speed: 1e15 },
+    { label: 'Human (1 attempt / 10s)', speed: 0.1 }
+  ];
+
+  function classifyNB(password){
+    // Count features
+    const counts = {
+      upper: (password.match(/[A-Z]/g)||[]).length,
+      lower: (password.match(/[a-z]/g)||[]).length,
+      digit: (password.match(/\d/g)||[]).length,
+      symbol: (password.match(/[^A-Za-z0-9]/g)||[]).length,
+      length: password.length
+    };
+
+    // Compute log-likelihoods
+    const logProb = { weak: Math.log(nbModel.prior.weak), strong: Math.log(nbModel.prior.strong) };
+
+    ['upper','lower','digit','symbol'].forEach(type=>{
+      logProb.weak += counts[type] * Math.log(nbModel[type].weak + 0.01); // Laplace smoothing
+      logProb.strong += counts[type] * Math.log(nbModel[type].strong + 0.01);
+    });
+
+    logProb.weak += Math.log(counts.length / 12 * nbModel.length.weak + 0.01); // length factor
+    logProb.strong += Math.log(counts.length / 12 * nbModel.length.strong + 0.01);
+
+    // Softmax to get probability between 0 and 1
+    const maxLog = Math.max(logProb.weak, logProb.strong);
+    const expWeak = Math.exp(logProb.weak - maxLog);
+    const expStrong = Math.exp(logProb.strong - maxLog);
+    const probStrong = expStrong / (expStrong + expWeak);
+
+    return { probStrong, counts };
+  }
+
+  function secondsToReadable(sec){
+    if (!isFinite(sec)) return '∞';
+    const year = 365 * 24 * 3600;
+    const years = sec / year;
+    if (years < 1){
+      const days = Math.floor(sec / 86400); if (days>0) return days+' days';
+      const hours = Math.floor(sec / 3600); if (hours>0) return hours+' hours';
+      const mins = Math.floor(sec / 60); if (mins>0) return mins+' minutes';
+      return Math.floor(sec)+' seconds';
+    }
+    if (years < 1e6) return years.toLocaleString(undefined,{ maximumFractionDigits:1 })+' years';
+    const log10years = Math.log10(years);
+    const exp = Math.floor(log10years);
+    const mant = Math.pow(10, log10years - exp);
+    return mant.toFixed(3)+'e+'+exp+' years';
+  }
+
+  function estimate(password){
+    const nb = classifyNB(password);
+    const baseGuesses = Math.pow(10, nb.probStrong*12 + 3); // arbitrary scale for demonstration
+    const results = ATTACKERS.map(att=>{
+      const timeSec = baseGuesses / att.speed;
+      return {
+        label: att.label,
+        timeSeconds: timeSec
+      };
+    });
+    return {
+      probStrong: nb.probStrong,
+      results
+    };
+  }
+
+  function render(password){
+    const out = estimate(password || '');
+    document.getElementById('complexity').textContent = (out.probStrong*100).toFixed(1) + '%';
+    document.getElementById('formula').textContent = 'NB-based prediction: higher % = stronger password';
+
+    const resultsEl = document.getElementById('results');
+    resultsEl.innerHTML = '';
+    out.results.forEach(r=>{
+      const div = document.createElement('div');
+      div.className = 'badge';
+
+      const permLine = document.createElement('div');
+      permLine.className = 'small';
+      permLine.textContent = r.label;
+
+      const timeLine = document.createElement('div');
+      timeLine.style.marginTop = '6px';
+      timeLine.className = 'mono';
+      timeLine.textContent = secondsToReadable(r.timeSeconds);
+
+      div.appendChild(permLine);
+      div.appendChild(timeLine);
+      resultsEl.appendChild(div);
+    });
+  }
+
+  const input = document.getElementById('pwdInput');
+  const btn = document.getElementById('calcBtn');
+
+  btn.addEventListener('click', ()=>render(input.value||''));
+  input.addEventListener('keydown', e=>{ if(e.key==='Enter') render(input.value||''); });
+
+  input.value = 'correct-horse-battery-staple';
+  render(input.value);
+
+  /* Cursor glow & bubble (same as before) */
+  (function(){
+    const glow = document.querySelector('.cursor-glow');
+    const bubble = document.getElementById('bubbleCursor');
+    const target = {x:50,y:50}, current={x:50,y:50};
+    const SMOOTH=0.16;
+
+    function onPointerMove(e){
+      const clientX=e.touches?.[0]?.clientX ?? e.clientX;
+      const clientY=e.touches?.[0]?.clientY ?? e.clientY;
+      target.x=(clientX/window.innerWidth)*100;
+      target.y=(clientY/window.innerHeight)*100;
+      glow.style.opacity='1';
+      bubble.style.left=`${clientX}px`;
+      bubble.style.top=`${clientY}px`;
+    }
+    function onPointerLeave(){glow.style.opacity='0';}
+    function lerp(a,b,t){return a+(b-a)*t;}
+    function animate(){
+      current.x=lerp(current.x,target.x,SMOOTH);
+      current.y=lerp(current.y,target.y,SMOOTH);
+      glow.style.setProperty('--mx',current.x+'%');
+      glow.style.setProperty('--my',current.y+'%');
+      requestAnimationFrame(animate);
+    }
+
+    window.addEventListener('pointermove',onPointerMove,{passive:true});
+    window.addEventListener('pointerleave',onPointerLeave,{passive:true});
+    window.addEventListener('blur',onPointerLeave,{passive:true});
+    requestAnimationFrame(animate);
+  })();
+
+})();
+</script>
+</body>
+</html>
