@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Naive Bayes Classifier Demo</title>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    background: #1a1a1a;
+    color: #f0f0f0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+  }
+  h1 { margin-bottom: 10px; }
+  textarea { width: 100%; max-width: 600px; height: 100px; margin: 10px 0; padding: 10px; border-radius: 8px; border: none; }
+  button { padding: 10px 20px; border-radius: 8px; border: none; background: #ff5722; color: white; font-weight: bold; cursor: pointer; }
+  .output { margin-top: 20px; }
+  .label { margin: 5px 0; font-size: 1.1rem; }
+</style>
+</head>
+<body>
+<h1>Naive Bayes Classifier Demo</h1>
+<p>Train with labeled sentences, then classify new text.</p>
+
+<textarea id="trainInput" placeholder="Enter training data here: format -> label:text (one per line)"></textarea>
+<button id="trainBtn">Train Classifier</button>
+
+<textarea id="testInput" placeholder="Enter text to classify"></textarea>
+<button id="predictBtn">Predict Label</button>
+
+<div class="output" id="output"></div>
+
+<script>
+class NaiveBayes {
+  constructor() {
+    this.vocab = new Set();
+    this.labelCounts = {};
+    this.wordCounts = {};
+    this.totalDocs = 0;
+  }
+
+  // Tokenizer (simple, lowercase, split by non-word chars)
+  tokenize(text) {
+    return text.toLowerCase().split(/\W+/).filter(Boolean);
+  }
+
+  // Train the classifier with labeled data
+  train(label, text) {
+    if (!this.labelCounts[label]) {
+      this.labelCounts[label] = 0;
+      this.wordCounts[label] = {};
+    }
+    this.labelCounts[label]++;
+    this.totalDocs++;
+
+    const words = this.tokenize(text);
+    words.forEach(word => {
+      this.vocab.add(word);
+      this.wordCounts[label][word] = (this.wordCounts[label][word] || 0) + 1;
+    });
+  }
+
+  // Predict label for a new text
+  predict(text) {
+    const words = this.tokenize(text);
+    let bestLabel = null;
+    let maxLogProb = -Infinity;
+
+    for (const label in this.labelCounts) {
+      // P(label)
+      let logProb = Math.log(this.labelCounts[label] / this.totalDocs);
+
+      const totalWordsInLabel = Object.values(this.wordCounts[label]).reduce((a,b)=>a+b,0);
+      const vocabSize = this.vocab.size;
+
+      words.forEach(word => {
+        // Laplace smoothing
+        const wordFreq = this.wordCounts[label][word] || 0;
+        logProb += Math.log((wordFreq + 1) / (totalWordsInLabel + vocabSize));
+      });
+
+      if (logProb > maxLogProb) {
+        maxLogProb = logProb;
+        bestLabel = label;
+      }
+    }
+
+    return bestLabel || 'Unknown';
+  }
+}
+
+// ==========================
+// UI wiring
+// ==========================
+const nb = new NaiveBayes();
+const trainBtn = document.getElementById('trainBtn');
+const predictBtn = document.getElementById('predictBtn');
+const output = document.getElementById('output');
+
+trainBtn.addEventListener('click', () => {
+  const lines = document.getElementById('trainInput').value.split('\n');
+  let count = 0;
+  lines.forEach(line => {
+    const idx = line.indexOf(':');
+    if (idx > 0) {
+      const label = line.slice(0, idx).trim();
+      const text = line.slice(idx+1).trim();
+      if (label && text) {
+        nb.train(label, text);
+        count++;
+      }
+    }
+  });
+  output.innerHTML = `<div class="label">Trained on ${count} entries.</div>`;
+});
+
+predictBtn.addEventListener('click', () => {
+  const text = document.getElementById('testInput').value;
+  if (!text.trim()) return;
+  const label = nb.predict(text);
+  output.innerHTML = `<div class="label">Predicted Label: <strong>${label}</strong></div>`;
+});
+</script>
+</body>
+</html>
